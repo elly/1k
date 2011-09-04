@@ -1,0 +1,5 @@
+#!/bin/sh
+mzscheme -e "(load \"main.scm\")" -e "(compile \"$1.bf\" \"$1.S\")"
+gcc -c -o bf_rt.o bf_rt.c
+gcc -c -o $1.o $1.S
+gcc -o $1 $1.o bf_rt.o
