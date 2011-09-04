@@ -1,5 +1,5 @@
 CFLAGS := -Wall -Wextra -g
-PROGS := httpd sdate
+PROGS := fmt.o httpd sdate
 
 all : $(PROGS)
 

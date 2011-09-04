@@ -1,0 +1,39 @@
+#!/bin/sh
+
+pass="abcdef"
+nick="e1"
+user="e1"
+gecos="sic test"
+ctarg=""
+
+docmd()
+{
+	argz=$*
+	cmd=$1
+	arg0=$2
+
+	case $cmd in
+		/ct)
+			ctarg=$arg0
+			;;
+		*)
+			echo "${argz:1}"
+			;;
+	esac
+}
+
+[ -z $pass ] || echo "PASS $pass"
+echo "NICK $nick"
+echo "USER $user sic sic :$gecos"
+echo ""
+
+while read n; do
+	case $n in
+		/*)
+			docmd $n
+			;;
+		*)
+			echo "PRIVMSG $ctarg :$n"
+			;;
+	esac
+done

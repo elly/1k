@@ -1,0 +1,23 @@
+#!/bin/sh
+
+HM='\([^ ]\+\)\!\([^ ]\+\)@\([^ ]\+\)'
+CHAN='\(#[^ ]\+\)'
+NICK='\([^ ]\+\)'
+SERV='\([^ ]\+\)'
+MSG='\(.\+\)'
+
+while read n; do
+	n=`echo "$n" | \
+	   sed -e "s/^:$HM PRIVMSG $CHAN :$MSG/CMSG \1 \4 \5/" \
+	       -e "s/^:$HM PRIVMSG $NICK :$MSG/PMSG \1 \5/" \
+		   -e "s/^:$HM NOTICE $CHAN :$MSG/CNOT \1 \4 \5/" \
+		   -e "s/^:$HM NOTICE $NICK :$MSG/PNOT \1 \5/" \
+		   -e "s/^:$HM JOIN :$CHAN/JOIN \1 \2 \3 \4/" \
+		   -e "s/^:$HM PART $CHAN/PART \1 \4/" \
+		   -e "s/^:$HM QUIT :$MSG/QUIT \1 \4/" \
+		   -e "s/^:$HM NICK $NICK/NICK \1 \4/" \
+		   -e "s/^:$HM KICK $CHAN $NICK :$MSG/KICK \1 \4 \5 \6/" \
+		   -e "s/^:$SERV 001 $NICK :$MSG/CONN \1 \2 \3/" \
+		   -e "s/^:$MSG/SRAW \1/"`
+	echo "$n"
+done

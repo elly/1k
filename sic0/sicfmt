@@ -1,0 +1,52 @@
+#!/bin/sh
+
+red="\033[00;31m"
+green="\033[00;32m"
+yellow="\033[00;33m"
+blue="\033[00;34m"
+purple="\033[00;35m"
+end="\033[00m"
+
+set -o noglob
+
+fmsg()
+{
+	mt=$1; shift
+
+	case $mt in
+		CMSG)
+			sn=$1; shift
+			cn=$1; shift
+			echo "<$sn:$cn> $*"
+			;;
+		CNOT)
+			sn=$1; shift
+			cn=$1; shift
+			echo "-$sn:$cn- $*"
+			;;
+		PMSG)
+			sn=$1; shift
+			echo -e "${yellow}<$sn> $*${end}"
+			;;
+		PNOT)
+			sn=$1; shift
+			echo -e "${yellow}-$sn- $*${end}"
+			;;
+		JOIN|PART|QUIT|KICK|NICK)
+			echo -e "${green}$mt $*${end}"
+			;;
+		CONN)
+			echo -e "${blue}$*${end}"
+			;;
+		SRAW)
+			echo -e "${purple}$*${end}"
+			;;
+		*)
+			echo -e "${red}$*${end}"
+			;;
+	esac
+}
+
+while read n; do
+	fmsg $n
+done

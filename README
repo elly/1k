@@ -2,5 +2,8 @@ This repository is full of small, self-contained tools or libraries I've
 written. The only restriction on presence in this repo is that the tool or
 library must be less than 1000 lines of code.
 
+fmt.c: vsnprintf implementation
 httpd.c: HTTP server with CGI and dirindex support.
+inject.c: old (!) tool to inject a thread into another process
 sdate.c: Outputs the date format I use.
+sic0: a hack of suckless's sic irc client to be more useful
