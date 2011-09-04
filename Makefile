@@ -1,9 +1,7 @@
 CFLAGS := -Wall -Wextra -g
-PROGS := httpd
+PROGS := httpd sdate
 
 all : $(PROGS)
-
-httpd : httpd.o
 
 clean :
 	rm -f $(PROGS) *.o

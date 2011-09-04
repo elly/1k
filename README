@@ -3,3 +3,4 @@ written. The only restriction on presence in this repo is that the tool or
 library must be less than 1000 lines of code.
 
 httpd.c: HTTP server with CGI and dirindex support.
+sdate.c: Outputs the date format I use.
