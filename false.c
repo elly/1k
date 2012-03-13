@@ -2,6 +2,10 @@
  * ops: + - * / _ = > & |
  * $ dup, % pop, \ swap, @ rot, O pick, [ ... ] fn, fn ! call, bool fn ? if
  * fn pred # while, . putd, , putc, ^ getc, B fflush, { } comment
+ *
+ * Sample programs:
+ * "Hello, World!"
+ * 99 [ $ 0 = ~ ] [ $ . " bottles of beer on the wall!" 1 - ] #
  */
 
 #define _GNU_SOURCE
