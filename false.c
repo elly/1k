@@ -329,7 +329,7 @@ int main(int argc, char *argv[]) {
 	b = compile(in->bytes, &_dummy);
 
 	printf(".data\n.space 0x10000\nstack:\nvars:\n.space 0xd0\n.text\n");
-	printf("_fmt_int: .asciz \"%%d\\n\"\n");
+	printf("_fmt_int: .asciz \"%%d\"\n");
 	printf(".global main\n");
 	for (q = bufs; q; q = q->next) {
 		if (q->id > 1) {
