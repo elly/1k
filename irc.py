@@ -46,8 +46,8 @@ class Event:
         return self._args
     # }}}
     def __str__(self): # {{{
-        return '<Event kind=%s src=%s dest=%s>' % (self._kind, self._src,
-                                                   self._dest)
+        return '<Event kind=%s src=%s dest=%s target=%s args=%s>' % (
+            self._kind, self._src, self._dest, self._target, self._args)
     # }}}
 
 class Channel:
@@ -190,7 +190,7 @@ class IRC:
         # wild, but the RFC allows it...
         u = self.user(src)
         if not u:
-            u = User(nick, None, None)
+            u = User(src, None, None)
         return u
     # }}}
     def _parsedest(self, dest): # {{{
@@ -202,7 +202,15 @@ class IRC:
                 # channel we're not in (!?), although that'd be pretty messed
                 # up.
             return c
-        return None
+        elif dest == '*':
+            # Special case - some ircds send this as the dest of pre-auth
+            # notices. Not a valid nickname, in any case.
+            return None
+        else:
+            u = self.user(dest)
+            if not u:
+                u = User(dest, None, None)
+            return u
     # }}}
     def _parse_ping(self, line): # {{{
         (cmd, rest) = line.split(' ', 1)
@@ -216,6 +224,7 @@ class IRC:
         (nick, rest) = rest.split(' ', 1)
         self._server = src
         u = User(nick, None, None)
+        print 'Learned ourselves: %s' % u
         self._add_user(u)
         self._self = u
         self._add_event(Event('connected', src, u))
@@ -324,6 +333,14 @@ class IRC:
         if dest.is_channel():
             self._parse_chmode(src, dest, modes)
     # }}}
+    def _parse_privmsg(self, src, cmd, rest): # {{{
+        # <target> :<text...>
+        (dest, msg) = rest.split(' ', 1)
+        dest = self._parsedest(dest)
+        if msg[0] == ':':
+            msg = msg[1:]
+        self._add_event(Event('privmsg', src, dest, None, msg))
+    # }}}
     def _parse_unknown(self, src, cmd, rest): # {{{
         print 'Ignored: %s %s "%s"' % (src, cmd, rest)
     # }}}
@@ -385,6 +402,7 @@ class IRC:
             '005': self._parse_005,
             'join': self._parse_join,
             'mode': self._parse_mode,
+            'privmsg': self._parse_privmsg,
             '?': self._parse_unknown,
         }
         self._opts = {
