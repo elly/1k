@@ -1,0 +1,15 @@
++ - * / _ = > & |
+$ dup
+% pop
+\ swap
+@ rot
+O pick
+[ ... ] fn
+fn ! call
+bool fn ? if
+fn pred # while
+. putd
+, putc
+^ getc
+B fflush
+{ } comment
