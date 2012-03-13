@@ -1,0 +1,9 @@
+#!/bin/sh
+
+key='secret-hmac-key'
+host='http://127.0.0.1:8080'
+
+hash=$(sha256sum $1 | cut -f1 -d' ')
+hmac=$(echo -n "$hash" | openssl dgst -r -sha256 -hmac "$key" | cut -f1 -d ' ')
+
+curl -F "file=@$1" "$host/post/$hmac"
