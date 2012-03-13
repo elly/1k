@@ -23,6 +23,8 @@ def hash(r):
 	return hashlib.sha256(r).hexdigest()
 
 def mac(r):
+    if not key:
+        return ''
 	return hmac.HMAC(key, msg=r, digestmod=hashlib.sha256).hexdigest()
 
 @bottle.get('/:path')
