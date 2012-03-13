@@ -1,4 +1,4 @@
-/* false.c
+/* false.c - compiler for http://en.wikipedia.org/wiki/FALSE
  * ops: + - * / _ = > & |
  * $ dup, % pop, \ swap, @ rot, O pick, [ ... ] fn, fn ! call, bool fn ? if
  * fn pred # while, . putd, , putc, ^ getc, B fflush, { } comment
