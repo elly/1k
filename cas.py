@@ -5,7 +5,6 @@ import cgi
 import hashlib
 import hmac
 import os
-import tempfile
 
 cgi.maxlen = 1048576
 root = '/tmp/cas-store'
@@ -19,14 +18,13 @@ try:
 except OSError:
     os.mkdir(root, 0700)
 
-def hash(r):
+def digest(r):
     return hashlib.sha256(r).hexdigest()
 
 def mac(r):
     if not key:
         return ''
-    v = hmac.HMAC(key, msg=r, digestmod=hashlib.sha256).hexdigest()
-    return v
+    return hmac.HMAC(key, msg=r, digestmod=hashlib.sha256).hexdigest()
 
 @bottle.get('/:path')
 def get(path):
@@ -38,9 +36,9 @@ def post(fmac):
     if not d or 'file' not in d:
         bottle.abort(400, 'Need a file')
     r = d['file'].file.read()
-    v = hash(r)
+    v = digest(r)
     m = mac(v)
-    if key and hash(m) != hash(fmac):
+    if key and digest(m) != digest(fmac):
         bottle.abort(400, 'HMAC failure')
     with open(root + '/' + v, 'w') as f0:
         f0.write(r)
