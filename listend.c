@@ -1,4 +1,4 @@
-/* socketd.c - terminates line-buffered TCP sockets to stdio
+/* listend.c - terminates line-buffered TCP sockets to stdio
  * requires -lelib */
 
 #include <elib/linesocket.h>
@@ -35,12 +35,16 @@ static void client_done(struct linesocket *ls) {
 
 static void client_line(struct linesocket *ls, char *line) {
 	struct client *c = ls->priv;
-	printf("read %s %s\n", c->uuid, line);
+	char buf[MAXLINE * 2];
+	snprintf(buf, sizeof(buf), "read %s %s\n", c->uuid, line);
+	write(1, buf, strlen(buf));
 }
 
 static void client_close(struct linesocket *ls) {
 	struct client *c = ls->priv;
-	printf("close %s\n", c->uuid);
+	char buf[MAXLINE * 2];
+	snprintf(buf, sizeof(buf), "close %s\n", c->uuid);
+	write(1, buf, strlen(buf));
 	map_put(clients, c->uuid, NULL);
 	reactor_del(ls->s->r, ls->s);
 	efree(c, sizeof *c);
@@ -72,7 +76,9 @@ static void listener_read(struct socket *s) {
                 udie("accept()");
         n = reactor_add(s->r, nfd);
 	c = client_new(n);
-	printf("new %s\n", c->uuid);
+	char buf[MAXLINE * 2];
+	snprintf(buf, sizeof(buf), "new %s\n", c->uuid);
+	write(1, buf, strlen(buf));
 }
 
 static int serve(const char *hstr, const char *pstr) {
@@ -99,7 +105,6 @@ static void stdio_line(struct linesocket *ls, char *line) {
 	char *cmd, *who, *arg0;
 	struct client *c;
 	char mbuf[MAXLINE];
-	printf("stdio %p <- %s\n", ls, line);
 	cmd = strtok(line, " ");
 	if (!cmd)
 		return;
