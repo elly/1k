@@ -65,7 +65,6 @@ def sign(key, msg):
     bits = binhash(msg)
     n = 0
     r = ''
-    s = ''
     for bit in bits:
         k0 = hexhmac(key, '%d' % n)
         k1 = hexhmac(key, '%d' % (n + 1))
@@ -75,8 +74,6 @@ def sign(key, msg):
         else:
             r += hexhash(k0)
             r += k1
-        s += hexhash(k0)
-        s += hexhash(k1)
         n += 2
     return r
 

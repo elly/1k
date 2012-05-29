@@ -403,6 +403,7 @@ class IRC:
             'join': self._parse_join,
             'mode': self._parse_mode,
             'privmsg': self._parse_privmsg,
+            'cap': self._parse_cap,
             '?': self._parse_unknown,
         }
         self._opts = {
@@ -455,6 +456,7 @@ class IRC:
 
         if password:
             self.add_output('PASS :%s' % password)
+        self._add_output('CAP LS')
         self._add_output('NICK %s' % nick)
         self._add_output('USER %s %s "" :%s' % (user, user, gecos))
     # }}}

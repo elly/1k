@@ -30,6 +30,7 @@ struct states {
 static int pushstate(struct states *st, char *p) {
 	int i;
 	void *n;
+	printf("  push %p %02x\n", p, (unsigned int)*p);
 	for (i = 0; i < st->n; i++)
 		if (st->p[i] == p)
 			return 0;
@@ -47,8 +48,10 @@ static int pushstate(struct states *st, char *p) {
 static int step(struct states *st, char c) {
 	struct states nst = { 0, NULL };
 	int i;
+	printf("step %02x\n", (unsigned int)c);
 	for (i = 0; i < st->n; i++) {
 		char *p = st->p[i];
+		printf("  look %p %02x\n", p, (unsigned int)*p);
 		if (*p == '*') {
 			if (pushstate(&nst, p))
 				goto fail;
@@ -71,6 +74,15 @@ fail:
 	return -1;
 }
 
+static int startstates(struct states *st, char *p) {
+	st->n = 0;
+	st->p = NULL;
+	while (*p == '*')
+		if (pushstate(st, p++))
+			return -1;
+	return pushstate(st, p);
+}
+
 /* We're in an end state if all we have left is stars. */
 static int endstate(char *p) {
 	while (*p)
@@ -84,7 +96,8 @@ static int endstate(char *p) {
 int match(const char *pat, const char *str) {
 	struct states ss = { 0, NULL };
 	int i;
-	pushstate(&ss, (char *)pat);
+	if (startstates(&ss, (char *)pat))
+		return -1;
 	while (*str) {
 		if (step(&ss, *(str++)))
 			return -1;

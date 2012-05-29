@@ -111,7 +111,6 @@ static void reactor_refresh(struct reactor *r, struct socket *s) {
 	struct epoll_event evt;
 	evt.events = 0;
 	evt.data.ptr = s;
-	printf("reactor-refresh %p %p %p %p\n", s, s->read, s->write, s->close);
 	if (s->read)
 		evt.events |= EPOLLIN;
 	if (s->write)
@@ -140,15 +139,12 @@ static void reactor_run(struct reactor *r) {
 	for (i = 0; i < n; i++) {
 		s = evts[i].data.ptr;
 		if (evts[i].events & (EPOLLRDHUP | EPOLLERR | EPOLLHUP)) {
-			printf("reactor-run %p close\n", s);
 			if (s->close)
 				s->close(s);
 			reactor_del(r, s);
 		} else if ((evts[i].events & EPOLLIN) && s->read) {
-			printf("reactor-run %p read\n", s);
 			s->read(s);
 		} else if ((evts[i].events & EPOLLOUT) && s->write) {
-			printf("reactor-run %p write\n", s);
 			s->write(s);
 		}
 	}
@@ -174,7 +170,6 @@ static void client_read(struct socket *s) {
 	char *p;
 	ssize_t len;
 
-	printf("client-read %p %p\n", s, c);
 	len = read(s->fd, c->rbuf + c->rbuffill, c->rbufsize - c->rbuffill);
 	if (len < 0)
 		udie("read()");
@@ -195,7 +190,6 @@ static void client_write(struct socket *s) {
 	struct client *c = s->priv;
 	ssize_t len;
 
-	printf("client-write %p %p\n", s, c);
 	len = write(s->fd, c->wbuf, c->wbuffill);
 	if (len < 0)
 		udie("write()");
@@ -212,7 +206,6 @@ static void client_write(struct socket *s) {
 }
 
 static void client_writeb(struct client *c, const char *buf, size_t len) {
-	printf("client-writeb %p %p %zu\n", c, buf, len);
 	if (!c->wbufsize || c->wbufsize - c->wbuffill < len) {
 		size_t growby = len - (c->wbufsize - c->wbuffill);
 		c->wbuf = realloc(c->wbuf, c->wbufsize + growby);
@@ -244,7 +237,6 @@ static void client_writeln(struct client *c, const char *fmt, ...) {
 }
 
 static void client_writedone(struct client *c) {
-	printf("client-writedone %p\n", c);
 	close(c->s->fd);
 }
 
@@ -266,7 +258,6 @@ static void client_refillbuf(struct client *c) {
 
 static void client_close(struct socket *s) {
 	struct client *c = s->priv;
-	printf("client-close %p\n", c);
 	free(c->reqmethod);
 	free(c->requrl);
 	free(c->rbuf);
@@ -290,11 +281,9 @@ static void listener_read(struct socket *s) {
 	n->close = client_close;
 	reactor_refresh(s->r, n);
 	n->priv = client_new(n);
-	printf("listener-read %p -> %p\n", s, n);
 }
 
 static void error(struct client *c, int code) {
-	printf("error %p: %u\n", c, code);
 	client_writeln(c, "HTTP/1.1 %u Error", code);
 	client_writeln(c, "");
 	c->writedone = client_writedone;
@@ -315,7 +304,6 @@ static void runcgi(struct client *c, const char *prog, const char *args) {
 
 static void cgi(struct client *c, const char *prog, const char *args) {
 	int p;
-	printf("cgi %p: '%s' '%s'\n", c, prog, args);
 	p = fork();
 	if (!p)
 		runcgi(c, prog, args);
@@ -329,7 +317,6 @@ static void genindex(struct client *c, const char *url) {
 	DIR *d = fdopendir(c->fillfd);
 	struct dirent *e;
 
-	printf("genindex: %p '%s'\n", c, url);
 
 	client_writeln(c, "Content-Type: text/html");
 	client_writeln(c, "");
@@ -361,7 +348,6 @@ static void get(struct client *c, char *url) {
 	char *rest;
 	struct stat st;
 
-	printf("get: %p '%s'\n", c, url);
 	strlcpy(rp, docroot, sizeof(rp));
 	if ((rest = strchr(url, '?')))
 		*rest++ = '\0';
@@ -409,7 +395,6 @@ static void reqdone(struct client *c) {
 }
 
 static void reqhdr(struct client *c, char *line) {
-	printf("reqhdr %p: '%s'\n", c, line);
 
 	if (!strlen(line)) {
 		reqdone(c);
@@ -421,7 +406,6 @@ static void reqhdr(struct client *c, char *line) {
 
 static void reqline(struct client *c, char *line) {
 	char *method, *url, *version;
-	printf("reqline %p: '%s'\n", c, line);
 
 	method = strtok(line, " ");
 	url = strtok(NULL, " ");
