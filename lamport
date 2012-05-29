@@ -1,0 +1,124 @@
+#!/usr/bin/env python
+# lamport(1) - lamport signatures
+# This implementation is tuned for small public and private key sizes as
+# follows:
+# In Lamport's scheme, the private key is 512 values p_0_0, p_0_1, p_1_0, p_1_1,
+# ..., p_255_0, p_255_1, and the public key is 512 hashes h(p_0_0), h(p_0_1),
+# h(p_1_0), h(p_1_1), ..., h(p_255_0), h(p_255_1). We make two space-saving
+# optimizations:
+#
+# 1) The private key values are derived (using HMAC) from a passphrase. The
+# passphrase is not strengthened in any way and should contained the desired
+# security level worth of entropy. This allows private keys as stored to be
+# small.
+# 2) The public key is represented as a hash of all the public parts
+# concatenated: h(h(p_0_0) || h(p_0_1) || ... || h(p_255_0) || h(p_255_1)).
+#
+# The downside of these optimizations is that signatures double in size, because
+# we must include the public parts as well to allow verification that the whole
+# key used to sign corresponds to the original public key. The signature is a
+# string of values as follows: if bit i of the message's hash is 0, then p_i_0
+# and h(p_i_1) are appended; otherwise, h(p_i_0) and p_i_1 are appended. It is
+# straightforward for the receiver to compute h(p_i_0) and h(p_i_1) for all i
+# from the message's hash, since they know which of the two must be hashed; they
+# can then hash the concatenation to reproduce the original pubkey, if the
+# signature was correct.
+
+import hashlib
+import hmac
+import sys
+
+def hexhash(val):
+    return hashlib.sha256(val).hexdigest()
+
+def byte2bin(val):
+    b = ''
+    for x in range(0, 8):
+        if val & (1 << (7 - x)):
+            b += '1'
+        else:
+            b += '0'
+    return b
+
+def binhash(val):
+    return ''.join([ byte2bin(ord(x)) for x in hashlib.sha256(val).digest() ])
+
+def hexhmac(key, val):
+    return hmac.HMAC(key, val, hashlib.sha256).hexdigest()
+
+def gen(key):
+    """
+    Generates a Lamport signature public key from the supplied secret key. The
+    public key is the hash of the public parts of every subkey.
+    """
+    v = ''
+    for n in range(0, 512):
+        v += hexhash(hexhmac(key, '%d' % n))
+    return hexhash(v)
+
+def sign(key, msg):
+    """
+    Signs a given message with a key derived from the given passphrase. The
+    resulting signature is a series of concatenated private or public parts,
+    decided by the bits of the message's hash.
+    """
+    bits = binhash(msg)
+    n = 0
+    r = ''
+    s = ''
+    for bit in bits:
+        k0 = hexhmac(key, '%d' % n)
+        k1 = hexhmac(key, '%d' % (n + 1))
+        if bit == '0':
+            r += k0
+            r += hexhash(k1)
+        else:
+            r += hexhash(k0)
+            r += k1
+        s += hexhash(k0)
+        s += hexhash(k1)
+        n += 2
+    return r
+
+def verify(pubkey, sig, msg):
+    """
+    Verify a signature from a specified pubkey on a specified message. To do
+    this, we try to reconstruct what the whole pubkey should be from the
+    signature on this message; we hash whichever one of (k0, k1) each bit of
+    the message says we should hash, which will yield the original pubkey for a
+    correctly-signed message.
+    """
+    bits = binhash(msg)
+    keys = ''
+    for bit in bits:
+        (k0, k1, sig) = (sig[:64], sig[64:128], sig[128:])
+        if bit == '0':
+            keys += hexhash(k0)
+            keys += k1
+        else:
+            keys += k0
+            keys += hexhash(k1)
+    return hexhash(keys) == pubkey
+
+def test_lamport():
+    pubkey = gen('test')
+    sig = sign('test', 'message')
+    assert verify(pubkey, sig, 'message')
+
+def usage():
+    print 'Usage: %s gen <passphrase>' % sys.argv[0]
+    print '       %s sign <passphrase> < file' % sys.argv[0]
+    print '       %s verify <pubkey> <sig> < file' % sys.argv[0]
+    sys.exit(1)
+
+if len(sys.argv) > 2 and sys.argv[1] == 'gen':
+    print gen(sys.argv[2])
+elif len(sys.argv) > 2 and sys.argv[1] == 'sign':
+    print sign(sys.argv[2], sys.stdin.read())
+elif len(sys.argv) > 3 and sys.argv[1] == 'verify':
+    if verify(sys.argv[2], sys.argv[3], sys.stdin.read()):
+        sys.exit(0)
+    else:
+        sys.exit(1)
+else:
+    usage()
