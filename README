@@ -5,8 +5,15 @@ library must be less than 1000 lines of code.
 cas.py: server for a content-addressed store
 cas: client for a content-addressed store
 ebf: a brainfuck compiler written in scheme
+false.c: a compiler for the False language
 fmt.c: vsnprintf implementation
 httpd.c: HTTP server with CGI and dirindex support.
 inject.c: old (!) tool to inject a thread into another process
+irc.py: IRC protocol parsing library
+lamport: Lamport signature scheme
+listend.c: a TCP<->stdio muxer
+match.c: a (slightly buggy!) match()
+merkle: Merkle-tree generator
+qalloc.c: fixed-heap memory allocator
 sdate.c: Outputs the date format I use.
 sic0: a hack of suckless's sic irc client to be more useful
