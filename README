@@ -1,6 +1,7 @@
 This repository is full of small, self-contained tools or libraries I've
 written. The only restriction on presence in this repo is that the tool or
-library must be less than 1000 lines of code.
+library must be less than 1000 lines of code. All of this stuff is Apache 2.0
+licensed (see COPYING for the legalese).
 
 cas.py: server for a content-addressed store
 cas: client for a content-addressed store
