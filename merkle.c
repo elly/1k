@@ -11,20 +11,7 @@
 
 #include <openssl/evp.h>
 
-enum {
-	MAXHASH = 64
-};
-
-struct hasher {
-	void *(*new)(void *aux);
-	void (*free)(void *aux, void *hash);
-
-	void (*init)(void *aux, void *hash);
-	void (*update)(void *aux, void *hash, const unsigned char *buf, size_t sz);
-	void (*final)(void *aux, void *hash, unsigned char *hashbuf);
-	size_t size;
-	void *aux;
-};
+#include "merkle.h"
 
 struct merkle {
 	struct merkle *parent;
