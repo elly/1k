@@ -1,9 +1,12 @@
-/* merkle.c - merkle hashing tool */
+/* merkle;c - merkle hashing tool */
 
 #include <assert.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
+
+#include <openssl/evp.h>
 
 enum {
 	MAXHASH = 64
@@ -11,11 +14,11 @@ enum {
 
 struct hasher {
 	void *(*new)(void *aux);
-	void (*free)(void *hash);
+	void (*free)(void *aux, void *hash);
 
-	void (*init)(void *hash);
-	void (*update)(void *hash, const unsigned char *buf, size_t sz);
-	void (*final)(void *hash, unsigned char *hashbuf);
+	void (*init)(void *aux, void *hash);
+	void (*update)(void *aux, void *hash, const unsigned char *buf, size_t sz);
+	void (*final)(void *aux, void *hash, unsigned char *hashbuf);
 	size_t size;
 	void *aux;
 };
@@ -30,27 +33,29 @@ struct merkle {
 
 struct merkle *merkle_new(size_t sz, struct hasher *hasher) {
 	struct merkle *m = malloc(sizeof *m);
+	assert(sz > hasher->size);
+	assert(!(sz % hasher->size));
 	m->parent = NULL;
 	m->size = sz;
 	m->filled = 0;
 	m->hasher = hasher;
 	m->hash = hasher->new(hasher->aux);
-	hasher->init(m->hash);
+	hasher->init(hasher->aux, m->hash);
 	return m;
 }
 
 void merkle_update(struct merkle *m, const unsigned char *buf, size_t sz) {
 	unsigned char hashbuf[MAXHASH];
 	assert(!(m->size % sz));
-	m->hasher->update(m->hash, buf, sz);
+	m->hasher->update(m->hasher->aux, m->hash, buf, sz);
 	m->filled += sz;
 	if (m->filled != m->size)
 		return;
-	m->hasher->final(m->hash, hashbuf);
+	m->hasher->final(m->hasher->aux, m->hash, hashbuf);
 	if (!m->parent)
 		m->parent = merkle_new(m->size, m->hasher);
 	merkle_update(m->parent, hashbuf, m->hasher->size);
-	m->hasher->init(m->hash);
+	m->hasher->init(m->hasher->aux, m->hash);
 	m->filled = 0;
 }
 
@@ -59,59 +64,56 @@ void merkle_final(struct merkle *m, unsigned char *buf) {
 		merkle_final(m->parent, buf);
 		return;
 	}
-	m->hasher->final(m->hash, buf);
+	m->hasher->final(m->hasher->aux, m->hash, buf);
 }
 
 /* demo code starts here */
 
-struct bogus_state {
-	unsigned char n;
+void *evpmd_new(void *aux) {
+	return EVP_MD_CTX_create();
+}
+
+void evpmd_free(void *aux, void *hash) {
+	EVP_MD_CTX_destroy(hash);
+}
+
+void evpmd_init(void *aux, void *hash) {
+	EVP_MD *(*func)(void) = aux;
+	EVP_DigestInit(hash, func());
+}
+
+void evpmd_update(void *aux, void *hash, const unsigned char *buf, size_t sz) {
+	EVP_DigestUpdate(hash, buf, sz);
+}
+
+void evpmd_final(void *aux, void *hash, unsigned char *buf) {
+	unsigned int ignored = MAXHASH;
+	EVP_DigestFinal_ex(hash, buf, &ignored);
+}
+
+struct hasher sha256_hasher = {
+	.new = evpmd_new,
+	.free = evpmd_free,
+	.init = evpmd_init,
+	.update = evpmd_update,
+	.final = evpmd_final,
+	.size = 32,
+	.aux = EVP_sha256
 };
 
-static void* bogus_new(void *aux) {
-	struct bogus_state *s = malloc(sizeof *s);
-	s->n = 0;
-	return s;
-}
-
-static void bogus_free(void *p) {
-	free(p);
-}
-
-static void bogus_init(void *p) {
-	struct bogus_state *s = p;
-	s->n = 0;
-}
-
-static void bogus_update(void *p, const unsigned char *n, size_t sz) {
-	struct bogus_state *s = p;
-	while (sz--)
-		s->n += *n++;
-}
-
-static void bogus_final(void *p, unsigned char *buf) {
-	struct bogus_state *s = p;
-	buf[0] = s->n;
-}
-
-struct hasher bogus_hasher = {
-	.new = bogus_new,
-	.free = bogus_free,
-	.init = bogus_init,
-	.update = bogus_update,
-	.final = bogus_final,
-	.size = 1,
-	.aux = NULL
-};
-
-int main(void) {
-	unsigned char buf;
+int main() {
+	static const int blocksize = 1024;
+	unsigned char buf[blocksize];
 	int i;
-	struct merkle *base = merkle_new(4, &bogus_hasher);
-	for (i = 0; i < 500; i++) {
-		buf = i;
-		merkle_update(base, &buf, sizeof(buf));
+	struct merkle *base = merkle_new(blocksize, &sha256_hasher);
+	while ((i = read(0, buf, blocksize)) > 0) {
+		if (i < blocksize)
+			memset(buf + i, 0, blocksize - i);
+		merkle_update(base, buf, blocksize);
 	}
-	merkle_final(base, &buf);
-	printf("%d\n", buf);
+	merkle_final(base, buf);
+	for (i = 0; i < sha256_hasher.size; i++)
+		printf("%02x", buf[i]);
+	printf("\n");
+	return 0;
 }
