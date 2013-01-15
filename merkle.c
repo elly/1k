@@ -1,4 +1,7 @@
-/* merkle;c - merkle hashing tool */
+/* merkle.c - merkle hashing tool
+ * Used like: merkle <hash type> <block size>
+ * hashes stdin, emits hash (as hex) on stdout
+ */
 
 #include <assert.h>
 #include <stdint.h>
@@ -91,6 +94,26 @@ void evpmd_final(void *aux, void *hash, unsigned char *buf) {
 	EVP_DigestFinal_ex(hash, buf, &ignored);
 }
 
+struct hasher md5_hasher = {
+	.new = evpmd_new,
+	.free = evpmd_free,
+	.init = evpmd_init,
+	.update = evpmd_update,
+	.final = evpmd_final,
+	.size = 16,
+	.aux = EVP_md5
+};
+
+struct hasher sha1_hasher = {
+	.new = evpmd_new,
+	.free = evpmd_free,
+	.init = evpmd_init,
+	.update = evpmd_update,
+	.final = evpmd_final,
+	.size = 20,
+	.aux = EVP_sha1
+};
+
 struct hasher sha256_hasher = {
 	.new = evpmd_new,
 	.free = evpmd_free,
@@ -101,11 +124,45 @@ struct hasher sha256_hasher = {
 	.aux = EVP_sha256
 };
 
-int main() {
-	static const int blocksize = 1024;
-	unsigned char buf[blocksize];
+struct hasher sha512_hasher = {
+	.new = evpmd_new,
+	.free = evpmd_free,
+	.init = evpmd_init,
+	.update = evpmd_update,
+	.final = evpmd_final,
+	.size = 64,
+	.aux = EVP_sha512
+};
+
+struct {
+	const char *name;
+	struct hasher *hasher;
+} hashers[] = {
+	{ "md5", &md5_hasher },
+	{ "sha1", &sha1_hasher },
+	{ "sha256", &sha256_hasher },
+	{ "sha512", &sha512_hasher },
+	{ NULL, NULL }
+};
+
+int main(int argc, char *argv[]) {
+	static int blocksize = 1024;
+	unsigned char *buf;
 	int i;
-	struct merkle *base = merkle_new(blocksize, &sha256_hasher);
+	struct merkle *base;
+	struct hasher *hasher = &sha256_hasher;
+
+	if (argc > 1)
+		for (i = 0; hashers[i].name; i++)
+			if (!strcmp(argv[1], hashers[i].name))
+				hasher = hashers[i].hasher;
+
+	if (argc > 2)
+		blocksize = atoi(argv[2]);
+
+	buf = malloc(blocksize);
+	base = merkle_new(blocksize, hasher);
+
 	while ((i = read(0, buf, blocksize)) > 0) {
 		if (i < blocksize)
 			memset(buf + i, 0, blocksize - i);
