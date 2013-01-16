@@ -36,9 +36,9 @@ struct merkle *merkle_new(size_t sz, struct hasher *hasher) {
 
 void merkle_update(struct merkle *m, const unsigned char *buf, size_t sz) {
 	unsigned char hashbuf[MAXHASH];
-	assert(!(m->size % sz));
 	m->hasher->update(m->hasher->aux, m->hash, buf, sz);
 	m->filled += sz;
+	assert(m->filled <= m->size);
 	if (m->filled != m->size)
 		return;
 	m->hasher->final(m->hasher->aux, m->hash, hashbuf);
@@ -50,9 +50,12 @@ void merkle_update(struct merkle *m, const unsigned char *buf, size_t sz) {
 }
 
 void merkle_final(struct merkle *m, unsigned char *buf) {
-	if (m->parent) {
-		merkle_final(m->parent, buf);
-		return;
+	while (m->parent) {
+		m->hasher->final(m->hasher->aux, m->hash, buf);
+		m->parent->hasher->update(m->parent->hasher->aux,
+		                          m->parent->hash, buf,
+		                          m->hasher->size);
+		m = m->parent;
 	}
 	m->hasher->final(m->hasher->aux, m->hash, buf);
 }
@@ -151,9 +154,10 @@ int main(int argc, char *argv[]) {
 	base = merkle_new(blocksize, hasher);
 
 	while ((i = read(0, buf, blocksize)) > 0) {
-		if (i < blocksize)
-			memset(buf + i, 0, blocksize - i);
-		merkle_update(base, buf, blocksize);
+		/* assume a short read means end of input... if we get multiple
+		 * short reads, the state machine in merkle_update() may get
+		 * broken */
+		merkle_update(base, buf, i);
 	}
 	merkle_final(base, buf);
 	for (i = 0; i < sha256_hasher.size; i++)
