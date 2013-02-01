@@ -23,6 +23,7 @@
 #define FILEBUFMAX 4096
 
 static const char *docroot;
+static int printreqs = 0;
 
 struct reactor {
 	int epfd;
@@ -289,12 +290,15 @@ static void error(struct client *c, int code) {
 	c->writedone = client_writedone;
 }
 
-static void runcgi(struct client *c, const char *prog, const char *args) {
+static void iptobuf(struct client *c, char *buf) {
 	unsigned int ip = ntohl(c->s->sa.sin_addr.s_addr);
+	sprintf(buf, "%u.%u.%u.%u", (ip >> 24) & 0xFF,
+	        (ip >> 16) & 0xFF, (ip >> 8) & 0xFF, ip & 0xFF);
+}
+
+static void runcgi(struct client *c, const char *prog, const char *args) {
 	char buf[] = "REMOTE_ADDR=255.255.255.255";
-	snprintf(buf, sizeof(buf), "REMOTE_ADDR=%u.%u.%u.%u",
-	         (ip >> 24) & 0xFF, (ip >> 16) & 0xFF,
-	         (ip >> 8) & 0xFF, ip & 0xFF);
+	iptobuf(c, buf + strlen("REMOTE_ADDR="));
 	putenv(buf);
 	dup2(c->s->fd, 0);
 	dup2(c->s->fd, 1);
@@ -316,7 +320,6 @@ static void cgi(struct client *c, const char *prog, const char *args) {
 static void genindex(struct client *c, const char *url) {
 	DIR *d = fdopendir(c->fillfd);
 	struct dirent *e;
-
 
 	client_writeln(c, "Content-Type: text/html");
 	client_writeln(c, "");
@@ -388,6 +391,11 @@ static void get(struct client *c, char *url) {
 }
 
 static void reqdone(struct client *c) {
+	if (printreqs) {
+		char buf[32];
+		iptobuf(c, buf);
+		printf("%s %s %s\n", buf, c->reqmethod, c->requrl);
+	}
 	if (!strcasecmp(c->reqmethod, "GET"))
 		get(c, c->requrl);
 	else
@@ -449,10 +457,13 @@ int main(int argc, char *argv[]) {
 	int opt;
 	int port = 80;
 	
-	while ((opt = getopt(argc, argv, "p:")) != -1) {
+	while ((opt = getopt(argc, argv, "p:v")) != -1) {
 		switch (opt) {
 			case 'p':
 				port = atoi(optarg);
+				break;
+			case 'v':
+				printreqs = 1;
 				break;
 			default:
 				usage(argv[0]);
