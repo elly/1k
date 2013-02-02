@@ -448,7 +448,7 @@ static int serve(int port) {
 }
 
 static void usage(const char *progn) {
-	printf("Usage: %s [-p port] <root>\n", progn);
+	printf("Usage: %s [-p port] [-v] <root>\n", progn);
 }
 
 int main(int argc, char *argv[]) {
