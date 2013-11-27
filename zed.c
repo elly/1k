@@ -147,6 +147,11 @@ void needarg(const char *buf) {
 		oopsx("needarg");
 }
 
+void neednonzero(struct buffer *fb) {
+	if (fb->a1 == 0 || fb->a2 == 0)
+		oopsx("neednonzero");
+}
+
 void edit(struct buffer *fb, char *fn) {
 	FILE *f;
 	if (strlen(fn) > sizeof(fb->fn))
@@ -229,7 +234,8 @@ int findre1(struct line *l, char *re, size_t *cpos) {
 		return 1;
 	for (i = 0; i <= l->sz - relen - 1; i++) {
 		if (!strncmp(l->data + i, re, relen)) {
-			*cpos = i;
+			if (cpos)
+				*cpos = i;
 			return 0;
 		}
 	}
@@ -320,6 +326,24 @@ int getaddr(struct buffer *fb, char *lb) {
 	return lb1 - lb;
 }
 
+void cmd(struct buffer *fb, char *lb);
+
+void gre(struct buffer *fb, char *lb) {
+	char *re = getre(&lb);
+	size_t i;
+	char cb[MAXLINE];
+	if (!re)
+		oopsx("needre");
+	if (!*lb)
+		oopsx("needcmd");
+	for (i = 0; i < fb->nl; i++) {
+		if (findre1(fb->l + i, re, NULL))
+			continue;
+		snprintf(cb, sizeof(cb), "%zu%s", i + 1, lb);
+		cmd(fb, cb);
+	}
+}
+
 void cmd(struct buffer *fb, char *lb) {
 	int i = getaddr(fb, lb);
 	int number = 0;
@@ -338,6 +362,9 @@ void cmd(struct buffer *fb, char *lb) {
 			needarg(lb + i);
 			edit(fb, lb + i + 2);
 			break;
+		case 'g':
+			gre(fb, lb + i + 1);
+			break;
 		case 'i':
 			rdaddbuf(fb, fb->a1, stdin);
 			fb->dot = fb->a1 + (fb->nl - oldnl);
@@ -345,6 +372,7 @@ void cmd(struct buffer *fb, char *lb) {
 		case 'n':
 			number = 1;
 		case 'p':
+			neednonzero(fb);
 			wrbuf(fb, fb->a1, fb->a2, number);
 			fb->dot = fb->a2;
 			break;
