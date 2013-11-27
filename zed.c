@@ -424,14 +424,16 @@ void cmd(struct buffer *fb, char *lb) {
 			prbuf(fb);
 			break;
 		case '?':
-			printf("(.)a    append\n");
-			printf("(.,.)d  delete\n");
-			printf("e <fn>  edit fn\n");
-			printf("(.)i    insert\n");
-			printf("(.,.)n  print numbered\n");
-			printf("(.,.)p  print\n");
-			printf("q       quit\n");
-			printf("w <fn>  write fn\n");
+			printf("(.)a          append\n");
+			printf("(.,.)d        delete\n");
+			printf("e <fn>        edit fn\n");
+			printf("g/re/c        run c on lines matching re\n");
+			printf("(.)i          insert\n");
+			printf("(.,.)n        print numbered\n");
+			printf("(.,.)p        print\n");
+			printf("(.,.)s/re/v   replace re with v\n");
+			printf("q             quit\n");
+			printf("w <fn>        write fn\n");
 			break;
 		default:
 			oopsx("nocmd, try '?'");
