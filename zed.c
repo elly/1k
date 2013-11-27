@@ -217,7 +217,7 @@ char *getre(char **lb) {
 		return NULL;
 	lb0++;
 	re = lb0;
-	while (*lb0 != '/')
+	while (*lb0 && *lb0 != '/')
 		lb0++;
 	if (*lb0 != '/')
 		oopsx("badre");
@@ -326,6 +326,42 @@ int getaddr(struct buffer *fb, char *lb) {
 	return lb1 - lb;
 }
 
+void subst1(struct line *l, char *re, char *p) {
+	size_t cpos;
+	size_t n = l->sz + strlen(p) - strlen(re);
+	char *data;
+	if (findre1(l, re, &cpos))
+		return;
+	data = malloc(n);
+	if (!data)
+		err(1, "malloc");
+	memcpy(data, l->data, cpos);
+	memcpy(data + cpos, p, strlen(p));
+	memcpy(data + cpos + strlen(p), l->data + cpos + strlen(re), l->sz - cpos - strlen(re));
+	free(l->data);
+	l->data = data;
+	l->sz = n;
+}
+
+void subst(struct buffer *fb, char *lb) {
+	char *re = getre(&lb);
+	size_t i;
+	size_t j;
+	char *p;
+
+	if (!re)
+		oopsx("needre");
+	p = lb;
+	while (*lb && *lb != '/')
+		lb++;
+	if (*lb != '/')
+		oopsx("needsubst");
+	*lb = '\0';
+
+	for (i = fb->a1; i <= fb->a2; i++)
+		subst1(fb->l + i - 1, re, p);
+}
+
 void cmd(struct buffer *fb, char *lb);
 
 void gre(struct buffer *fb, char *lb) {
@@ -378,6 +414,10 @@ void cmd(struct buffer *fb, char *lb) {
 			break;
 		case 'q':
 			exit(0);
+			break;
+		case 's':
+			neednonzero(fb);
+			subst(fb, lb + i + 1);
 			break;
 		case 'w':
 			svbuf(fb, hasarg(lb + i) ? lb + i + 2 : fb->fn);
