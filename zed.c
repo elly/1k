@@ -205,6 +205,52 @@ void delbuf(struct buffer *fb, size_t a1, size_t a2) {
 	shrink(fb, a1 - 1, a2 - a1 + 1);
 }
 
+char *getre(char **lb) {
+	char *lb0 = *lb;
+	char *re;
+	if (*lb0 != '/')
+		return NULL;
+	lb0++;
+	re = lb0;
+	while (*lb0 != '/')
+		lb0++;
+	if (*lb0 != '/')
+		oopsx("badre");
+	*lb0 = '\0';
+	lb0++;
+	*lb = lb0;
+	return re;
+}
+
+int findre1(struct line *l, char *re, size_t *cpos) {
+	size_t i;
+	size_t relen = strlen(re);
+	if ((l->sz - 1) < relen)
+		return 1;
+	for (i = 0; i <= l->sz - relen - 1; i++) {
+		if (!strncmp(l->data + i, re, relen)) {
+			*cpos = i;
+			return 0;
+		}
+	}
+	return 1;
+}
+
+int findre(struct buffer *b, char *re, size_t *ln, size_t *cpos) {
+	size_t end = b->dot < b->nl ? b->dot : 0;
+	size_t i = end;
+	do {
+		if (!findre1(b->l + i, re, cpos)) {
+			*ln = i;
+			return 0;
+		}
+		i++;
+		if (i >= b->nl)
+			i = 0;
+	} while (i != end);
+	return 1;
+}
+
 char *getoneaddr(struct buffer *b, size_t *addr, char *lb) {
 	size_t v = 0;
 	char *lb0 = lb;
@@ -221,6 +267,17 @@ char *getoneaddr(struct buffer *b, size_t *addr, char *lb) {
 		*addr = b->nl;
 		nbase++;
 		lb0++;
+	}
+
+	if (*lb0 == '/') {
+		size_t cpos = 0;
+		char *re = getre(&lb0);
+		if (!findre(b, re, addr, &cpos)) {
+			nbase++;
+			(*addr)++;
+		} else {
+			oopsx("nomatch");
+		}
 	}
 
 	if (*lb0 == '+') {
@@ -255,6 +312,11 @@ int getaddr(struct buffer *fb, char *lb) {
 	lb1 = getoneaddr(fb, &fb->a2, lb0);
 	if (lb0 == lb1)
 		fb->a2 = fb->a1;
+	if (fb->a2 < fb->a1) {
+		size_t t = fb->a2;
+		fb->a2 = fb->a1;
+		fb->a1 = t;
+	}
 	return lb1 - lb;
 }
 
