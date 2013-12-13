@@ -1,0 +1,22 @@
+[ req ]
+default_bits = 2048
+default_keyfile = ${ENV::CERT_CN}.key
+distinguished_name = req_distinguished_name
+attributes = req_attributes
+x509_extensions = v3_noca
+prompt = no
+default_md = sha512
+encrypt_key = no
+
+[ req_distinguished_name ]
+CN = ${ENV::CERT_CN}
+emailAddress = keymaster@leptoquark.net
+
+[ req_attributes ]
+challengePassword = none
+
+[ v3_noca ]
+subjectKeyIdentifier = hash
+authorityKeyIdentifier = keyid:always,issuer:always
+basicConstraints = CA:false
+subjectAltName = DNS:${ENV::CERT_CN}

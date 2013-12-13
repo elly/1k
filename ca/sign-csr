@@ -1,0 +1,2 @@
+#!/bin/sh
+CERT_CN=$1 openssl ca -in $1.csr -config sign-csr.cnf -cert ca.pem -keyfile ca.key -out $1.pem

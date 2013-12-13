@@ -1,0 +1,24 @@
+[ ca ]
+default_ca = default_ca
+
+[ default_ca ]
+certificate = ca.pem
+private_key = ca.key
+default_days = 3650
+x509_extensions = v3_noca
+prompt = no
+default_md = sha512
+database = ca.db
+serial = ca.serial
+new_certs_dir = new-certs
+policy = policy_any
+
+[ v3_noca ]
+subjectKeyIdentifier = hash
+authorityKeyIdentifier = keyid:always,issuer:always
+basicConstraints = CA:false
+subjectAltName = DNS:${ENV::CERT_CN}
+
+[ policy_any ]
+commonName = supplied
+emailAddress = supplied

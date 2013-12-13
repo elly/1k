@@ -1,0 +1,2 @@
+#!/bin/sh
+CERT_CN=$1 openssl req -out $1.csr -keyout $1.key -newkey rsa:2048 -config gen-csr.cnf

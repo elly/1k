@@ -1,0 +1,5 @@
+#!/bin/sh
+openssl req -config gen-ca.cnf -newkey rsa:4096 -x509 -out ca.pem -keyout ca.key
+echo 01 > ca.serial
+touch ca.db
+mkdir -p new-certs

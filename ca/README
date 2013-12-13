@@ -1,0 +1,5 @@
+ca-machine$ ./gen-ca
+other-machine$ ./gen-csr othermachine.net
+copy othermachine.net.csr to ca-machine
+ca-machine$ ./sign-csr othermachine.net
+copy othermachine.net.pem back to othermachine
