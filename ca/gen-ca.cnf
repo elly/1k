@@ -6,6 +6,7 @@ attributes = req_attributes
 x509_extensions = v3_ca
 prompt = no
 default_md = sha512
+default_days = 3650
 
 [ req_distinguished_name ]
 emailAddress = keymaster@leptoquark.net

@@ -2,7 +2,7 @@
 default_ca = default_ca
 
 [ default_ca ]
-certificate = ca.pem
+certificate = ca.crt
 private_key = ca.key
 default_days = 3650
 x509_extensions = v3_noca
@@ -17,7 +17,8 @@ policy = policy_any
 subjectKeyIdentifier = hash
 authorityKeyIdentifier = keyid:always,issuer:always
 basicConstraints = CA:false
-subjectAltName = DNS:${ENV::CERT_CN}
+# subjectAltName = DNS:${ENV::CERT_CN}
+subjectAltName = EMAIL:${ENV::CERT_CN}
 
 [ policy_any ]
 commonName = supplied
