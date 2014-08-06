@@ -422,6 +422,8 @@ void cmd(struct buffer *fb, char *lb) {
 		case 'w':
 			svbuf(fb, hasarg(lb + i) ? lb + i + 2 : fb->fn);
 			prbuf(fb);
+			if (lb[i + 1] == 'q')
+				exit(0);
 			break;
 		case '?':
 			printf("(.)a          append\n");
@@ -450,7 +452,7 @@ void cmds(struct buffer *fb, char *ifn) {
 
 	while (1) {
 		setjmp(cmdjmp);
-		printf("> ");
+		printf("zed$ ");
 		fflush(stdout);
 		if (!fgets(lb, sizeof(lb), stdin))
 			break;
