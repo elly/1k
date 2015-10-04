@@ -179,6 +179,7 @@ void pushblob(struct blob *b) {
 	struct val *v = malloc(sizeof *v);
 	v->type = VAL_BLOB;
 	v->u.bval = b;
+	blob_ref(b);
 	push(v);
 	/* printf("pushblob %zu\n", v->u.bval->len); */
 }
@@ -275,11 +276,13 @@ void procint(char *cmd) {
 	pushint(val);
 }
 
-void prval(size_t index, struct val *v) {
+void prval(size_t index, struct val *v, int pridx) {
+	if (pridx)
+		printf("%zu ", index);
 	if (v->type == VAL_INT) {
-		printf("%zu int %llx\n", index, v->u.ival);
+		printf("int 0x%llx == %lld\n", v->u.ival, v->u.ival);
 	} else if (v->type == VAL_STR) {
-		printf("%zu str '%s'\n", index, v->u.sval);
+		printf("str '%s'\n", v->u.sval);
 	} else if (v->type == VAL_BLOB) {
 		char firstbytes[5];
 		if (v->u.bval->len >= 2) {
@@ -292,19 +295,49 @@ void prval(size_t index, struct val *v) {
 		} else {
 			snprintf(firstbytes, sizeof(firstbytes), "");
 		}
-		printf("%zu blob %zu bytes, starts with '%s'\n", index,
+		printf("blob %zu bytes, starts with '%s'\n",
 		       v->u.bval->len, firstbytes);
 	} /* XXX vec */
+}
+
+void cmd_dup() {
+	struct val *v = peek();
+	if (!v)
+		return;
+	if (v->type == VAL_INT) {
+		pushint(v->u.ival);
+	} else if (v->type == VAL_STR) {
+		pushstr(v->u.sval);
+	} else if (v->type == VAL_BLOB) {
+		pushblob(v->u.bval);
+	}
 }
 
 void cmd_dump() {
 	struct val *v = stack;
 	size_t i = 0;
 	while (v) {
-		prval(i, v);
+		prval(i, v, 1);
 		i++;
 		v = v->next;
 	}
+}
+
+void cmd_len() {
+	struct val *v = pop();
+	if (!v)
+		return;
+	if (v->type == VAL_STR)
+		pushint(strlen(v->u.sval));
+	else if (v->type == VAL_BLOB)
+		pushint(v->u.bval->len);
+}
+
+void cmd_print() {
+	struct val *v = peek();
+	if (!v)
+		return;
+	prval(0, v, 0);
 }
 
 void cmd_read() {
@@ -387,8 +420,11 @@ struct {
 	const char *name;
 	void (*func)();
 } cmds[] = {
+	{ "dup", cmd_dup },
 	{ "dump", cmd_dump },
+	{ "len", cmd_len },
 	{ "read", cmd_read },
+	{ "print", cmd_print },
 	{ "write", cmd_write },
 	{ "slice", cmd_slice },
 	{ NULL, NULL },
