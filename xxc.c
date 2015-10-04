@@ -87,6 +87,18 @@ struct vec *vec_new(size_t isize) {
 	return v;
 }
 
+struct vec *vec_dup(struct vec *vv) {
+	struct vec *v = vec_new(vv->len);
+	memcpy(v->data, vv->data, vv->filled * sizeof(int64_t));
+	v->filled = vv->filled;
+	return v;
+}
+
+void vec_free(struct vec *v) {
+	free(v->data);
+	free(v);
+}
+
 void vec_grow(struct vec *v) {
 	v->data = realloc(v->data, 2 * v->len * sizeof(*v->data));
 	memset(v->data + v->len, 0, v->len * sizeof(*v->data));
@@ -184,6 +196,13 @@ void pushblob(struct blob *b) {
 	/* printf("pushblob %zu\n", v->u.bval->len); */
 }
 
+void pushvec(struct vec *vv) {
+	struct val *v = malloc(sizeof *v);
+	v->type = VAL_VEC;
+	v->u.vval = vec_dup(vv);
+	push(v);
+}
+
 int64_t popint() {
 	struct val *v = pop();
 	int64_t iv = v ? v->u.ival : 0;
@@ -230,6 +249,19 @@ struct blob *popblob() {
 	}
 	free(v);
 	return b;
+}
+
+struct vec *popvec() {
+	struct val *v = pop();
+	struct vec *vv = v ? v->u.vval : NULL;
+	if (!v)
+		return NULL;
+	if (v->type != VAL_VEC) {
+		free(v);
+		return NULL;
+	}
+	free(v);
+	return vv;
 }
 
 int hc2i(char c) {
@@ -297,7 +329,20 @@ void prval(size_t index, struct val *v, int pridx) {
 		}
 		printf("blob %zu bytes, starts with '%s'\n",
 		       v->u.bval->len, firstbytes);
-	} /* XXX vec */
+	} else if (v->type == VAL_VEC) {
+		char firstents[128];
+		if (v->u.vval->filled >= 2) {
+			snprintf(firstents, sizeof(firstents), "%llx, %llx",
+			         v->u.vval->data[0], v->u.vval->data[1]);
+		} else if (v->u.vval->filled == 1) {
+			snprintf(firstents, sizeof(firstents), "%llx",
+			         v->u.vval->data[0]);
+		} else {
+			snprintf(firstents, sizeof(firstents), "");
+		}
+		printf("vec %zu slots %zu filled, starts with '%s'\n",
+		       v->u.vval->len, v->u.vval->filled, firstents);
+	}
 }
 
 void cmd_dup() {
@@ -310,6 +355,8 @@ void cmd_dup() {
 		pushstr(v->u.sval);
 	} else if (v->type == VAL_BLOB) {
 		pushblob(v->u.bval);
+	} else if (v->type == VAL_VEC) {
+		pushvec(v->u.vval);
 	}
 }
 
@@ -331,6 +378,9 @@ void cmd_len() {
 		pushint(strlen(v->u.sval));
 	else if (v->type == VAL_BLOB)
 		pushint(v->u.bval->len);
+	else if (v->type == VAL_VEC)
+		pushint(v->u.vval->filled);
+	/* XXX free v */
 }
 
 void cmd_print() {
@@ -416,12 +466,79 @@ void cmd_slice() {
 	pushblob(b2);
 }
 
+/* grep: blob|str blob|str -> vec */
+void cmd_grep() {
+	struct val *needle = pop();
+	struct val *haystack = pop();
+
+	unsigned char *hsbuf;
+	unsigned char *ndbuf;
+	size_t ndlen;
+	size_t hslen;
+
+	size_t hsidx;
+
+	struct vec *result = vec_new(16);
+
+	if (needle->type == VAL_STR) {
+		ndbuf = (unsigned char *)needle->u.sval;
+		ndlen = strlen(needle->u.sval);
+	} else if (needle->type == VAL_BLOB) {
+		ndbuf = needle->u.bval->data;
+		ndlen = needle->u.bval->len;
+	} else {
+		warnx("grep: needs blob|str");
+		/* XXX val_free(needle, haystack) */
+		return;
+	}
+
+	if (haystack->type == VAL_STR) {
+		hsbuf = (unsigned char *)haystack->u.sval;
+		hslen = strlen(haystack->u.sval);
+	} else if (haystack->type == VAL_BLOB) {
+		hsbuf = haystack->u.bval->data;
+		hslen = haystack->u.bval->len;
+	} else {
+		warnx("grep: needs blob|str");
+		/* XXX val_free */
+		return;
+	}
+
+	for (hsidx = 0; hsidx + ndlen < hslen; hsidx++)
+		if (!memcmp(hsbuf + hsidx, ndbuf, ndlen))
+			vec_add(result, hsidx);
+	pushvec(result);
+}
+
+int64_t adler(unsigned char *data, size_t len) {
+	uint32_t av;
+	uint32_t a = 1, b = 0;
+	size_t i;
+	for (i = 0; i < len; i++) {
+		a = (a + data[i]) % 65521;
+		b = (b + a) % 65521;
+	}
+	return (b << 16) | a;
+}
+
+void cmd_adler() {
+	struct blob *b = popblob();
+	if (!b) {
+		warnx("adler: needs blob");
+		return;
+	}
+	pushint(adler(b->data, b->len));
+	blob_unref(b);
+}
+
 struct {
 	const char *name;
 	void (*func)();
 } cmds[] = {
+	{ "adler", cmd_adler },
 	{ "dup", cmd_dup },
 	{ "dump", cmd_dump },
+	{ "grep", cmd_grep },
 	{ "len", cmd_len },
 	{ "read", cmd_read },
 	{ "print", cmd_print },
