@@ -195,7 +195,7 @@ struct sfmtctx {
 
 void _sfmtout(void *p, char c) {
 	struct sfmtctx *ctx = p;
-	if (ctx->idx >= ctx->len)
+	if (ctx->idx + 1 >= ctx->len)
 		return;
 	ctx->buf[ctx->idx++] = c;
 }
@@ -218,11 +218,7 @@ int sfmt(char *buf, unsigned int len, const char *fmt, ...) {
 	num_written = _fmt(&ctx, ap);
 	va_end(ap);
 
-	if (sctx.idx >= sctx.len) {
-		buf[sctx.idx - 1] = '\0';
-	} else {
-		buf[sctx.idx] = '\0';
-	}
+	buf[sctx.idx] = '\0';
 
 	return num_written;
 }
