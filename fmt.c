@@ -10,6 +10,7 @@
 struct fmtctx {
 	const char *str;
 	unsigned int state;
+	int num_written;
 	void (*out)(void *priv, char c);
 	void *priv;
 };
@@ -27,6 +28,11 @@ enum {
 #define WID(c)		(((c)->state >> 20) & 0xFFF)
 #define PACKPREC(c,w)	((c)->state |= (w << 12))
 #define PREC(c)		(((c)->state >> 12) & 0xFF)
+
+static void _out(struct fmtctx *ctx, char c) {
+	ctx->num_written++;
+	ctx->out(ctx->priv, c);
+}
 
 static int _isdigit(char c) {
 	return c >= '0' && c <= '9';
@@ -55,12 +61,12 @@ void _utoa(struct fmtctx *ctx, unsigned int base, unsigned long long arg) {
 	}
 	if (ctx->state & ST_ZEROPAD)
 		while ((o - n) < WID(ctx) && n > buf)
-			*n-- = '0'; 
+			*n-- = '0';
 	if (ctx->state & ST_NEGATIVE)
 		*n-- = '-';
 	n++;
 	while (n < buf + sizeof(buf))
-		ctx->out(ctx->priv, *n++);
+		_out(ctx, *n++);
 }
 
 static void _fmts(struct fmtctx *ctx, char c, va_list va) {
@@ -68,7 +74,7 @@ static void _fmts(struct fmtctx *ctx, char c, va_list va) {
 	unsigned int n = PREC(ctx);
 	(void)c;
 	while ((!(ctx->state & ST_PREC) || n) && *s) {
-		ctx->out(ctx->priv, *s++);
+		_out(ctx, *s++);
 		n--;
 	}
 }
@@ -99,7 +105,7 @@ static void _fmtu(struct fmtctx *ctx, char c, va_list va) {
 static void _fmtc(struct fmtctx *ctx, char c, va_list va) {
 	char n = va_arg(va, int);
 	(void)c;
-	ctx->out(ctx->priv, n);
+	_out(ctx, n);
 }
 
 static void _fmtb(struct fmtctx *ctx, char c, va_list va) {
@@ -116,7 +122,7 @@ static void _fmtb(struct fmtctx *ctx, char c, va_list va) {
 static void _fmtpct(struct fmtctx *ctx, char c, va_list va) {
 	(void)c;
 	(void)va;
-	ctx->out(ctx->priv, '%');
+	_out(ctx, '%');
 }
 
 struct {
@@ -135,12 +141,12 @@ struct {
 	{ '\0', 0 }
 };
 
-void _fmt(struct fmtctx *ctx, va_list args) {
+int _fmt(struct fmtctx *ctx, va_list args) {
 	int i;
-	ctx->state = 0;
+	ctx->num_written = ctx->state = 0;
 	while (*ctx->str) {
 		if (*ctx->str != '%') {
-			ctx->out(ctx->priv, *ctx->str++);
+			_out(ctx, *ctx->str++);
 			continue;
 		}
 
@@ -178,19 +184,18 @@ void _fmt(struct fmtctx *ctx, va_list args) {
 
 		ctx->str++;
 	}
+	return ctx->num_written;
 }
 
 struct sfmtctx {
 	char *buf;
 	unsigned int idx;
 	unsigned int len;
-	unsigned int fidx;
 };
 
 void _sfmtout(void *p, char c) {
 	struct sfmtctx *ctx = p;
-	ctx->fidx++;
-	if (ctx->idx >= ctx->len)
+	if (ctx->idx + 1 >= ctx->len)
 		return;
 	ctx->buf[ctx->idx++] = c;
 }
@@ -199,6 +204,7 @@ int sfmt(char *buf, unsigned int len, const char *fmt, ...) {
 	struct fmtctx ctx;
 	struct sfmtctx sctx;
 	va_list ap;
+	int num_written;
 
 	ctx.str = fmt;
 	ctx.out = _sfmtout;
@@ -207,18 +213,12 @@ int sfmt(char *buf, unsigned int len, const char *fmt, ...) {
 	sctx.buf = buf;
 	sctx.len = len;
 	sctx.idx = 0;
-	sctx.fidx = 0;
 
 	va_start(ap, fmt);
-	_fmt(&ctx, ap);
+	num_written = _fmt(&ctx, ap);
 	va_end(ap);
 
-	if (sctx.idx >= sctx.len) {
-		buf[sctx.idx - 1] = '\0';
-	} else {
-		buf[sctx.idx] = '\0';
-		sctx.fidx++;
-	}
+	buf[sctx.idx] = '\0';
 
-	return sctx.fidx;
+	return num_written;
 }
