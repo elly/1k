@@ -2,7 +2,7 @@
 /* x86-64: args rdi rsi rdx rcx r8 r9, saved rsp rbp r12-r15 */
 /* linux syscall: nr rax, args rdi rsi rdx r10 r8 r9 */
 /* osx syscall: nr | 0x200_0000 rax, args rdi rsi rdx r10 r8 19 */
-/* r12 = dstack, r13 = rstack */
+/* rsp = dstack, r13 = rstack, r14 = fth ip */
 
 .bss
 here: .quad 0
@@ -81,6 +81,16 @@ memeq:
 	xor %rax, %rax
 	ret
 
+/* void appendq(long qword) */
+appendq:
+	push %r12
+	mov here(%rip), %r12
+	mov %rdi, (%r12)
+	add $0x8, %r12
+	mov %r12, here(%rip)
+	pop %r12
+	ret
+
 initregs:
 	lea dstacktop(%rip), %r12
 	lea rstacktop(%rip), %r13
@@ -91,7 +101,7 @@ initmem:
 	mov %rax, here(%rip)
 	ret
 
-/* void addword(const char *name, int flags) */
+/* void addword(const char *name) */
 addword:
 	mov here(%rip), %rcx
 	mov %rcx, %r14
@@ -104,7 +114,6 @@ addword:
 	pop %rdi
 	and $0x1f, %rax
 	mov %rax, %r8
-	or %rsi, %rax
 	mov %al, (%rcx)
 	inc %rcx
 
@@ -183,33 +192,82 @@ getword:
 	mov %rdx, %rax
 	ret
 
-foobar: .asciz "foobar"
-quxbaz: .asciz "quxbaz"
-omglolz: .asciz "omglolz"
-initdict:
-	mov $0, %rsi
-	xor %rsi, %rsi
-	lea foobar(%rip), %rdi
-	call addword
-	xor %rsi, %rsi
-	lea quxbaz(%rip), %rdi
-	call addword
+/* void* de2code(void* de) */
+de2code:
+	lea 0x28(%rdi), %rax
 	ret
+
+/* void* de2args(void* de) */
+de2args:
+	lea 0x30(%rdi), %rax
+	ret
+
+fthnext:
+	mov (%r14), %rax
+	add $0x8, %r14
+	jmp *(%rax)
+
+pushfip:
+	sub $0x8, %r13
+	mov %rdi, (%r13)
+	ret
+
+popfip:
+	mov (%r13), %rax
+	add $0x8, %r13
+	ret
+
+docol:
+	call pushfip
+	add $0x8, %rax
+	mov %rax, %r14
+	jmp fthnext
+
+/* To run a fth function:
+ * 1) Find the codeword for it
+ * 2) Save the current fth ip on the rstack
+ * 3) Set the fth ip to its first data word
+ * 4) Jump to its codeword
+ *
+ * To exit it:
+ * 1) Restore the old fth ip
+ * 2) Use fthnext as though we were continuing execution there
+ */
+
+dupname: .asciz "dup"
+dupbody:
+	mov (%rsp), %rax
+	push %rax
+	jmp fthnext
+
+initdict:
+	lea dupname(%rip), %rdi
+	call addword
+	lea dupbody(%rip), %rdi
+	call appendq
+
+	ret
+
+/* Next steps here:
+ * 1) Build QUIT, LIT, and * as assembly primitives
+ * 2) Define SQUARE as a fth word that is DUP *
+ * 3) Define another word (foobar) that does 4 SQUARE or smth
+ * 4) Hack up enough of INTERPRET to run FOOBAR and see if 16 ends up on the
+ *    dstack
+ */
 
 .globl _start
 _start:
 	call initregs
 	call initmem
 	call initdict
-	lea foobar(%rip), %rdi
+	push $0x12345678
+	lea dupname(%rip), %rdi
 	call getword
+	mov %rax, %rdi
+	call de2code
 	int3
-	lea quxbaz(%rip), %rdi
-	call getword
-	int3
-	lea omglolz(%rip), %rdi
-	call getword
-	int3
+	jmp *(%rax)
 	call exit
 	ret
 
